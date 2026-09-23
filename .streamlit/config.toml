@@ -1,0 +1,24 @@
+[theme]
+font = "DM Sans:https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&display=swap"
+headingFont = "Fraunces:https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300..600;1,9..144,300..600&display=swap"
+baseRadius = "10px"
+showWidgetBorder = false
+
+[theme.light]
+primaryColor = "#8B2E3A"
+backgroundColor = "#EEE4DA"
+secondaryBackgroundColor = "#F3EBE3"
+textColor = "#2E1416"
+linkColor = "#8B2E3A"
+borderColor = "#EADFD5"
+
+[theme.dark]
+primaryColor = "#E6A1A8"
+backgroundColor = "#1C0D0F"
+secondaryBackgroundColor = "#361D21"
+textColor = "#EEE4DA"
+linkColor = "#E6A1A8"
+borderColor = "#3D2226"
+
+[client]
+toolbarMode = "viewer"
