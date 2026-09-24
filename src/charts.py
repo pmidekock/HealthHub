@@ -34,17 +34,38 @@ def config() -> dict:
 def exercise_progress(fit: pd.DataFrame, exercise: str, prs: pd.DataFrame, t: dict) -> go.Figure:
     df = fit[fit["oefening"] == exercise].sort_values("datum")
     fig = go.Figure()
-    fig.add_scatter(x=df["datum"], y=df["e1rm"], name="Est. 1RM", mode="lines",
-                    line=dict(color=t["ink-3"], width=1.5, dash="dot"), hovertemplate="%{y:.1f} kg")
-    fig.add_scatter(x=df["datum"], y=df["gewicht"], name="Working weight", mode="lines+markers",
-                    line=dict(color=t["move"], width=2), marker=dict(size=8, color=t["move"], line=dict(color=t["surface"], width=2)),
-                    customdata=df[["sets", "reps"]], hovertemplate="%{y} kg · %{customdata[0]:.0f}×%{customdata[1]:.0f}")
-    p = prs[(prs["oefening"] == exercise) & (prs["datum"] >= df["datum"].min())]
-    fig.add_scatter(x=p["datum"], y=p["gewicht"], name="Personal record", mode="markers",
-                    marker=dict(size=13, symbol="star", color=t["accent"], line=dict(color=t["surface"], width=1.5)),
-                    hovertemplate="PR %{y} kg")
-    fig.update_yaxes(ticksuffix=" kg")
+    if df["gewicht"].fillna(0).max() <= 0:
+        # Bodyweight / no load: follow reps instead of kg
+        fig.add_scatter(x=df["datum"], y=df["reps"], name="Reps", mode="lines+markers",
+                        line=dict(color=t["move"], width=2), marker=dict(size=8, color=t["move"], line=dict(color=t["surface"], width=2)),
+                        customdata=df[["sets"]], hovertemplate="%{customdata[0]:.0f}×%{y:.0f} reps · bodyweight")
+        fig.update_yaxes(ticksuffix=" reps", rangemode="tozero")
+    else:
+        fig.add_scatter(x=df["datum"], y=df["e1rm"], name="Est. 1RM", mode="lines",
+                        line=dict(color=t["ink-3"], width=1.5, dash="dot"), hovertemplate="%{y:.1f} kg")
+        fig.add_scatter(x=df["datum"], y=df["gewicht"], name="Working weight", mode="lines+markers",
+                        line=dict(color=t["move"], width=2), marker=dict(size=8, color=t["move"], line=dict(color=t["surface"], width=2)),
+                        customdata=df[["sets", "reps"]], hovertemplate="%{y} kg · %{customdata[0]:.0f}×%{customdata[1]:.0f}")
+        p = prs[(prs["oefening"] == exercise) & (prs["datum"] >= df["datum"].min())]
+        fig.add_scatter(x=p["datum"], y=p["gewicht"], name="Personal record", mode="markers",
+                        marker=dict(size=13, symbol="star", color=t["accent"], line=dict(color=t["surface"], width=1.5)),
+                        hovertemplate="PR %{y} kg")
+        fig.update_yaxes(ticksuffix=" kg")
+    _date_axis(fig, df["datum"])
     return _style(fig, t, 320, legend=True)
+
+
+def _date_axis(fig: go.Figure, dates: pd.Series) -> None:
+    """Always show whole dates; pad the range so one or two points don't zoom to milliseconds."""
+    d = pd.to_datetime(dates).dropna()
+    fig.update_xaxes(type="date", tickformat="%b %-d", hoverformat="%a %b %-d")
+    if d.empty:
+        return
+    lo, hi = d.min(), d.max()
+    if (hi - lo) < pd.Timedelta(days=7):
+        mid = lo + (hi - lo) / 2
+        lo, hi = mid - pd.Timedelta(days=4), mid + pd.Timedelta(days=4)
+        fig.update_xaxes(range=[lo, hi], dtick=86400000)
 
 
 def weekly_volume(sess: pd.DataFrame, t: dict) -> go.Figure:
