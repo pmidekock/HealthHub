@@ -109,8 +109,13 @@ with top_l:
     ui.render(f'<p class="hh-top-date">{now:%A}, {now:%B} {now.day}</p>'
               f'<div class="hh-top-title" role="heading" aria-level="1">Good <em>{greet}</em>, {NAME}</div>')
 with top_r:
-    period = st.segmented_control("Period", ["Week", "Month", "Quarter", "Year"], default="Month",
-                                  label_visibility="collapsed", key="period") or "Month"
+    p_col, r_col = st.columns([5, 1], vertical_alignment="center")
+    with p_col:
+        period = st.segmented_control("Period", ["Week", "Month", "Quarter", "Year"], default="Month",
+                                      label_visibility="collapsed", key="period") or "Month"
+    if r_col.button(":material/refresh:", help="Fetch the latest data from Notion", key="refresh_top"):
+        st.cache_data.clear()
+        st.rerun()
 if demo:
     ui.render('<p class="bl-note">You\'re looking at demo data. Add your Notion token to see your own.</p>')
 
@@ -264,12 +269,12 @@ with c2:
 
 # ---------- Strength ----------
 section("Strength", "Your working weights, estimated max and personal records.")
-gym = fit[(fit["sport"] == "Gym") & (fit["gewicht"] > 0)]
+gym = fit[(fit["sport"] == "Gym") & fit["gewicht"].notna()]
 c1, c2 = st.columns([2, 1])
 with c1:
     with st.container(key="card_progress"):
         if gym.empty:
-            ui.render(ui.card_head("Progress per exercise") + '<p class="bl-empty">No weighted gym sets in this period yet.</p>')
+            ui.render(ui.card_head("Progress per exercise") + '<p class="bl-empty">No gym sets in this period yet.</p>')
         else:
             f1, f2 = st.columns([1, 2])
             focuses = [f for f in FOCUS_ORDER if f in gym["focus"].unique()]
@@ -277,7 +282,10 @@ with c1:
             pool = gym if focus == "All" else gym[gym["focus"] == focus]
             exercise = f2.selectbox("Exercise", pool["oefening"].value_counts().index.tolist())
             plot(charts.exercise_progress(fit, exercise, prs_all, T))
-            ui.render('<p class="bl-note">Est. 1RM uses the Epley formula: weight × (1 + reps / 30).</p>')
+            if pool.loc[pool["oefening"] == exercise, "gewicht"].fillna(0).max() <= 0:
+                ui.render('<p class="bl-note">Bodyweight exercise: progress is shown in reps.</p>')
+            else:
+                ui.render('<p class="bl-note">Est. 1RM uses the Epley formula: weight × (1 + reps / 30).</p>')
 with c2:
     rec = records(fit_all)
     rows = []
@@ -367,8 +375,4 @@ with st.expander("Browse and download"):
     st.dataframe(table, hide_index=True, width="stretch")
     st.download_button("Download CSV", table.to_csv(index=False).encode("utf-8"),
                        file_name=f"healthhub-{choice.lower()}.csv", mime="text/csv")
-f1, f2 = st.columns([3, 1], vertical_alignment="center")
-f1.caption("Demo data" if demo else "Synced from Notion · refreshes every 10 minutes")
-if f2.button("Refresh now", width="stretch"):
-    st.cache_data.clear()
-    st.rerun()
+st.caption("Demo data" if demo else "Synced from Notion · refreshes every 10 minutes, or use Refresh at the top")
