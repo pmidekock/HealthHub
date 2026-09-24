@@ -1,48 +1,48 @@
 # HealthHub Dashboard
 
-Streamlit-dashboard dat live data uit de Notion **Health Hub** haalt (Fitness Tracker, Lichaam Tracker, Sleep Tracker, Daily Activity).
+A Streamlit dashboard that pulls live data from the Notion **Health Hub** (Fitness Tracker, Body Tracker, Sleep Tracker, Daily Activity).
 
-Vormgegeven volgens het **HealthHub design system** (creme/zand/dusty pink/bordeaux, Fraunces + DM Sans, light & dark mode). UI-teksten in het Engels.
+Styled according to the **HealthHub design system** (cream/sand/dusty pink/burgundy, Fraunces + DM Sans, light & dark mode). UI text is in English.
 
-**Opbouw van de pagina:** begroeting + periodekeuze (Week · Month · Quarter · Year) → Apple Watch-ringen van vandaag (Move 500 kcal, Exercise 50 min, Stand 12 u) + active energy per dag → 4 metric cards (stappen, gewicht, vet%, slaap) → Training (recente workouts, maanddoelen incl. ringen en 10k-stappendagen, sessies per week, trainingskalender) → Strength (progressie per oefening met PR-sterren en e1RM, recente PR's, weekvolume) → Body (alle scans: gewicht, vet%, spier%, BMI, botmassa) → Sleep (slaapuren, nachten 7u+, slaap × training) → Your data (tabellen + CSV).
+**Page layout:** greeting + period selector (Week · Month · Quarter · Year) → today's Apple Watch rings (Move 500 kcal, Exercise 50 min, Stand 12 h) + active energy per day → 4 metric cards (steps, weight, body fat %, sleep) → Training (recent workouts, monthly goals incl. rings and 10k-step days, sessions per week, training calendar) → Strength (progression per exercise with PR stars and e1RM, recent PRs, weekly volume) → Body (all scans: weight, body fat %, muscle %, BMI, bone mass) → Sleep (hours slept, nights 7h+, sleep × training) → Your data (tables + CSV).
 
-Zonder token draait de app in **demo-modus** met synthetische data.
+Without a token, the app runs in **demo mode** with synthetic data.
 
-## Structuur
+## Structure
 
 ```
-app.py                 # Streamlit-app (layout en secties)
-src/config.py          # Notion data source IDs, doelen, sport → kleur/icoon
-src/theme.py           # design tokens (light/dark) + globale CSS
+app.py                 # Streamlit app (layout and sections)
+src/config.py          # Notion data source IDs, goals, sport → colour/icon
+src/theme.py           # design tokens (light/dark) + global CSS
 src/components.py      # Card, ActivityRings, MetricCard, GoalProgress, WeekBars, WorkoutRow (HTML)
-src/notion_api.py      # Notion REST API (v2025-09-03) + paginering
-src/transform.py       # opschonen, sessies, PR's, BMI, slaapkoppeling
-src/charts.py          # Plotly-grafieken
-src/demo_data.py       # demo-data als er geen token is
-.streamlit/config.toml # Streamlit-thema (light + dark) en fonts
+src/notion_api.py      # Notion REST API (v2025-09-03) + pagination
+src/transform.py       # cleaning, sessions, PRs, BMI, sleep linking
+src/charts.py          # Plotly charts
+src/demo_data.py       # demo data when no token is set
+.streamlit/config.toml # Streamlit theme (light + dark) and fonts
 ```
 
-## 1. Notion-integratie aanmaken
+## 1. Create a Notion integration
 
-1. Ga naar <https://www.notion.so/profile/integrations> → **New integration**.
-2. Naam: `Health Dashboard`, type **Internal**, workspace kiezen → Save.
-3. Capabilities: alleen **Read content** is nodig.
-4. Kopieer de **Internal Integration Secret** (begint met `ntn_`).
-5. Open in Notion de pagina **Health Hub** → `•••` → **Connections** → voeg `Health Dashboard` toe. De drie databases eronder erven de toegang.
+1. Go to <https://www.notion.so/profile/integrations> → **New integration**.
+2. Name: `Health Dashboard`, type **Internal**, choose your workspace → Save.
+3. Capabilities: only **Read content** is needed.
+4. Copy the **Internal Integration Secret** (starts with `ntn_`).
+5. In Notion, open the **Health Hub** page → `•••` → **Connections** → add `Health Dashboard`. The databases underneath inherit the access.
 
-## 2. Lokaal draaien
+## 2. Run locally
 
 ```bash
 cd health-dashboard
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements.txt
-cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # token invullen
+cp .streamlit/secrets.toml.example .streamlit/secrets.toml   # fill in your token
 streamlit run app.py
 ```
 
-## 3. Naar GitHub
+## 3. Push to GitHub
 
-Maak op GitHub een **private** repo aan (bv. `health-dashboard`), zonder README. Dan:
+Create a **private** repo on GitHub (e.g. `health-dashboard`), without a README. Then:
 
 ```bash
 cd health-dashboard
@@ -50,40 +50,40 @@ git init
 git add .
 git commit -m "Health Hub dashboard"
 git branch -M main
-git remote add origin https://github.com/<jouw-gebruikersnaam>/health-dashboard.git
+git remote add origin https://github.com/<your-username>/health-dashboard.git
 git push -u origin main
 ```
 
-`secrets.toml` staat in `.gitignore`: je token komt dus nooit in GitHub.
+`secrets.toml` is listed in `.gitignore`, so your token never ends up on GitHub.
 
 ## 4. Streamlit Community Cloud
 
-1. Ga naar <https://share.streamlit.io> → inloggen met GitHub.
-2. **Create app** → kies de repo, branch `main`, main file `app.py`.
-3. **Advanced settings → Secrets**, plak:
+1. Go to <https://share.streamlit.io> → sign in with GitHub.
+2. **Create app** → choose the repo, branch `main`, main file `app.py`.
+3. **Advanced settings → Secrets**, paste:
    ```toml
    NOTION_TOKEN = "ntn_..."
    ```
-4. Deploy. Zet daarna bij **Settings → Sharing** de app op *Only specific people* (alleen jouw e-mail), want het gaat om gezondheidsdata.
+4. Deploy. Then, under **Settings → Sharing**, set the app to *Only specific people* (just your email), since this is health data.
 
-Elke `git push` naar `main` herstart de app automatisch.
+Every `git push` to `main` restarts the app automatically.
 
-## Aannames in de berekeningen
+## Calculation assumptions
 
-- **Sessie** = unieke combinatie van datum + sport. Duur en calorieën: maximum binnen de sessie (ze staan soms op één oefening, soms op alle).
-- **Oefening** = veld *Exercise*, anders de *Name*.
-- **PR** = hoogste gewicht per oefening; **e1RM** (Epley) = gewicht × (1 + reps/30). Oefeningen zonder gewicht (bodyweight) tellen niet mee.
-- **Slaap** op datum X = de nacht vóór de training op datum X.
-- **BMI** met lengte 1,58 m (aan te passen in `src/config.py`).
+- **Session** = unique combination of date + sport. Duration and calories: the maximum within the session (they are sometimes entered on one exercise, sometimes on all).
+- **Exercise** = the *Exercise* field, otherwise the *Name*.
+- **PR** = heaviest weight per exercise; **e1RM** (Epley) = weight × (1 + reps/30). Exercises without weight (bodyweight) are not counted.
+- **Sleep** on date X = the night before the training on date X.
+- **BMI** uses a height of 1.58 m (adjustable in `src/config.py`).
 
-## Aanpassen
+## Customising
 
-- Startdatum: `START_DATE` in `src/config.py` (nu 23-09-2026). Oudere rijen blijven in Notion staan maar tellen niet mee.
-- Doelen: `GOAL_*` in `src/config.py` (sessies, minuten en kcal per week, slaap). Maanddoelen worden daaruit afgeleid.
-- Light/dark volgt je systeeminstelling; wisselen kan via het menu rechtsboven → Settings.
-- Nieuwe sport (bv. kickboksen): voeg de optie toe in Notion (*Sport Type*); kleur en icoon staan al klaar in `SPORT_STYLE`.
-- Nieuwe database: voeg het data source ID toe aan `DATA_SOURCES` en een `schoon_...`-functie in `transform.py`.
+- Start date: `START_DATE` in `src/config.py` (currently 23-09-2026). Older rows stay in Notion but are not counted.
+- Goals: `GOAL_*` in `src/config.py` (sessions, minutes and kcal per week, sleep). Monthly goals are derived from these.
+- Light/dark follows your system setting; you can switch via the menu in the top right → Settings.
+- New sport (e.g. kickboxing): add the option in Notion (*Sport Type*); the colour and icon are already set up in `SPORT_STYLE`.
+- New database: add its data source ID to `DATA_SOURCES` and a `schoon_...` function in `transform.py`.
 
-## Publieke repo + wachtwoord
+## Public repo + password
 
-Streamlit Community Cloud staat maar één *private* app per workspace toe. Heb je die al in gebruik, zet de repo dan op **public** en stel in de Secrets `APP_PASSWORD` in: de app toont dan eerst een wachtwoordscherm. De code bevat geen gezondheidsdata; die komt pas binnen met je Notion-token (dat in Secrets staat, niet in de repo).
+Streamlit Community Cloud only allows one *private* app per workspace. If you are already using that, set the repo to **public** and set `APP_PASSWORD` in Secrets: the app will then show a password screen first. The code contains no health data; that only comes in through your Notion token (which is stored in Secrets, not in the repo).
