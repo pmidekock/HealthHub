@@ -74,7 +74,7 @@ Every `git push` to `main` restarts the app automatically.
 - **Exercise** = the *Exercise* field, otherwise the *Name*.
 - **PR** = heaviest weight per exercise; **e1RM** (Epley) = weight × (1 + reps/30). Exercises without weight (bodyweight) are not counted.
 - **Sleep** on date X = the night before the training on date X.
-- **BMI** uses a height of 1.58 m (adjustable in `src/config.py`).
+- **BMI** uses a height of x m (adjustable in `src/config.py`).
 
 ## Customising
 
