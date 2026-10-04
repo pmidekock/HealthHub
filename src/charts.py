@@ -34,6 +34,8 @@ def config() -> dict:
 def exercise_progress(fit: pd.DataFrame, exercise: str, prs: pd.DataFrame, t: dict) -> go.Figure:
     df = fit[fit["oefening"] == exercise].sort_values("datum")
     fig = go.Figure()
+    if df["gewicht"].fillna(0).max() > 0:
+        df = df[df["gewicht"] > 0]  # a logged 0 kg is "no load", not a data point
     if df["gewicht"].fillna(0).max() <= 0:
         # Bodyweight / no load: follow reps instead of kg
         fig.add_scatter(x=df["datum"], y=df["reps"], name="Reps", mode="lines+markers",
@@ -46,7 +48,7 @@ def exercise_progress(fit: pd.DataFrame, exercise: str, prs: pd.DataFrame, t: di
         fig.add_scatter(x=df["datum"], y=df["gewicht"], name="Working weight", mode="lines+markers",
                         line=dict(color=t["move"], width=2), marker=dict(size=8, color=t["move"], line=dict(color=t["surface"], width=2)),
                         customdata=df[["sets", "reps"]], hovertemplate="%{y} kg · %{customdata[0]:.0f}×%{customdata[1]:.0f}")
-        p = prs[(prs["oefening"] == exercise) & (prs["datum"] >= df["datum"].min())]
+        p = prs[(prs["oefening"] == exercise) & (prs["datum"] >= df["datum"].min()) & prs["vorig_max"].notna()]
         fig.add_scatter(x=p["datum"], y=p["gewicht"], name="Personal record", mode="markers",
                         marker=dict(size=13, symbol="star", color=t["accent"], line=dict(color=t["surface"], width=1.5)),
                         hovertemplate="PR %{y} kg")
@@ -68,24 +70,40 @@ def _date_axis(fig: go.Figure, dates: pd.Series) -> None:
         fig.update_xaxes(range=[lo, hi], dtick=86400000)
 
 
-def weekly_volume(sess: pd.DataFrame, t: dict) -> go.Figure:
-    g = sess[sess["sport"] == "Gym"].groupby("week")["volume"].sum().reset_index()
-    fig = go.Figure(go.Bar(x=g["week"], y=g["volume"], marker=dict(color=t["move"], cornerradius=6),
-                           hovertemplate="Week of %{x|%b %d}<br>%{y:,.0f} kg<extra></extra>"))
-    fig.update_xaxes(tickformat="%b %-d")
+def _wk(w) -> str:
+    return f"{w:%b} {w.day}"
+
+
+def weekly_volume(sess: pd.DataFrame, weeks: pd.DatetimeIndex, t: dict) -> go.Figure:
+    g = sess[sess["sport"] == "Gym"].groupby("week")["volume"].sum().reindex(weeks, fill_value=0)
+    fig = go.Figure(go.Bar(x=[_wk(w) for w in g.index], y=g.values, width=0.55,
+                           marker=dict(color=t["move"], cornerradius=6),
+                           hovertemplate="Week of %{x}<br>%{y:,.0f} kg<extra></extra>"))
+    fig.update_xaxes(type="category")
+    fig.update_yaxes(rangemode="tozero")
     return _style(fig, t, 260)
 
 
-def calendar(sess: pd.DataFrame, t: dict) -> go.Figure:
+def focus_sets(gym: pd.DataFrame, weeks: pd.DatetimeIndex, focus: str, tone: str, ymax: float, t: dict) -> go.Figure:
+    g = gym[gym["focus"] == focus].groupby("week").agg(sets=("sets", "sum"), volume=("volume", "sum")).reindex(weeks, fill_value=0)
+    fig = go.Figure(go.Bar(x=[_wk(w) for w in g.index], y=g["sets"], width=0.55, customdata=g[["volume"]],
+                           marker=dict(color=t[tone], cornerradius=6),
+                           hovertemplate="Week of %{x}<br>%{y:.0f} sets · %{customdata[0]:,.0f} kg<extra></extra>"))
+    fig.update_xaxes(type="category")
+    fig.update_yaxes(range=[0, max(ymax * 1.15, 4)])
+    return _style(fig, t, 200)
+
+
+def calendar(sess: pd.DataFrame, weeks: pd.DatetimeIndex, t: dict) -> go.Figure:
     df = sess.groupby(["week", "dag_en"]).size().reset_index(name="n")
-    piv = df.pivot(index="dag_en", columns="week", values="n").reindex(DAYS_EN).fillna(0)
+    piv = df.pivot(index="dag_en", columns="week", values="n").reindex(index=DAYS_EN, columns=weeks).fillna(0)
     fig = go.Figure(go.Heatmap(
-        z=piv.values.clip(0, 1), x=piv.columns, y=piv.index, zmin=0, zmax=1,
+        z=piv.values.clip(0, 1), x=[_wk(w) for w in weeks], y=list(piv.index), zmin=0, zmax=1,
         colorscale=[[0, t["fill"]], [1, t["exercise"]]], showscale=False, xgap=4, ygap=4,
-        customdata=piv.values, hovertemplate="Week of %{x|%b %d} · %{y}<br>%{customdata:.0f} session(s)<extra></extra>",
+        customdata=piv.values, hovertemplate="Week of %{x} · %{y}<br>%{customdata:.0f} session(s)<extra></extra>",
     ))
     fig.update_yaxes(autorange="reversed", showgrid=False)
-    fig.update_xaxes(tickformat="%b %-d")
+    fig.update_xaxes(type="category")
     return _style(fig, t, 230)
 
 
@@ -100,28 +118,33 @@ def body_line(lich: pd.DataFrame, col: str, unit: str, tone: str, t: dict) -> go
     return _style(fig, t, 220)
 
 
-def sleep_trend(slaap: pd.DataFrame, goal: float, t: dict) -> go.Figure:
+def sleep_trend(slaap: pd.DataFrame, goal: float, t: dict, min_night: float = 7.0) -> go.Figure:
     df = slaap.copy()
-    df["avg7"] = df["uren"].rolling(7, min_periods=3).mean()
+    df["avg7"] = df["uren"].rolling(7, min_periods=1).mean()
+    base = t["sleep"]
+    colors = [_rgba(base, 0.62) if (pd.notna(u) and u >= min_night) else _rgba(base, 0.28) for u in df["uren"]] \
+        if base.startswith("#") else base
     fig = go.Figure()
-    fig.add_bar(x=df["datum"], y=df["uren"], name="Hours slept",
-                marker=dict(color=_rgba(t["sleep"], 0.38) if t["sleep"].startswith("#") else t["sleep"], cornerradius=4),
-                hovertemplate="%{y:.1f} h")
-    fig.add_scatter(x=df["datum"], y=df["avg7"], name="7-day average", mode="lines",
-                    line=dict(color=t["sleep"], width=2.5), hovertemplate="%{y:.1f} h")
+    fig.add_bar(x=df["datum"], y=df["uren"], name=f"Hours slept (dim = under {min_night:g} h)",
+                marker=dict(color=colors, cornerradius=4), customdata=df[["kwaliteit"]],
+                hovertemplate="%{y:.1f} h · quality %{customdata[0]:.0f}/10")
+    fig.add_scatter(x=df["datum"], y=df["avg7"], name="7-day average", mode="lines+markers" if len(df) < 3 else "lines",
+                    line=dict(color=base, width=2.5), marker=dict(size=7, color=base), hovertemplate="%{y:.1f} h")
     fig.add_hline(y=goal, line_dash="dot", line_color=t["ink-3"], line_width=1.5,
                   annotation_text=f"goal {goal:g} h", annotation_position="top right",
                   annotation_font=dict(color=t["ink-2"], size=11))
-    fig.update_xaxes(tickformat="%b %-d")
-    fig.update_yaxes(ticksuffix=" h")
+    fig.update_yaxes(ticksuffix=" h", rangemode="tozero")
     fig.update_layout(bargap=0.2)
+    _date_axis(fig, df["datum"])
     return _style(fig, t, 300, legend=True)
 
 
-def sleep_vs(koppel: pd.DataFrame, y: str, unit: str, tone: str, t: dict) -> go.Figure:
+def sleep_vs(koppel: pd.DataFrame, y: str, unit: str, tone: str, t: dict, x: str = "uren") -> go.Figure:
+    hours = x == "uren"
     fig = go.Figure(go.Scatter(
-        x=koppel["uren"], y=koppel[y], mode="markers",
+        x=koppel[x], y=koppel[y], mode="markers",
         marker=dict(size=10, color=t[tone], opacity=0.8, line=dict(color=t["surface"], width=1.5)),
-        hovertemplate=f"%{{x:.1f}} h sleep<br>%{{y:,.0f}} {unit}<extra></extra>"))
-    fig.update_xaxes(ticksuffix=" h", title=dict(text="Sleep the night before", font=dict(color=t["ink-2"], size=12)))
+        hovertemplate=(f"%{{x:.1f}} h sleep" if hours else "quality %{x:.0f}/10") + f"<br>%{{y:,.0f}} {unit}<extra></extra>"))
+    fig.update_xaxes(ticksuffix=" h" if hours else "", title=dict(
+        text="Sleep the night before" if hours else "Sleep quality the night before (1-10)", font=dict(color=t["ink-2"], size=12)))
     return _style(fig, t, 260)
