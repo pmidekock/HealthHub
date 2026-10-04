@@ -15,7 +15,8 @@ def _kolom(df: pd.DataFrame, naam: str):
 def schoon_fitness(ruw: pd.DataFrame) -> pd.DataFrame:
     """Eén rij per oefening (gym) of per les (pilates)."""
     if ruw.empty:
-        return pd.DataFrame(columns=["datum", "oefening", "sport", "focus"])
+        return pd.DataFrame(columns=["datum", "oefening", "sport", "focus", "sets", "reps", "gewicht", "duur", "kcal",
+                                     "intensiteit", "pilates_les", "notities", "volume", "e1rm", "week", "dag"])
     df = pd.DataFrame({
         "datum": pd.to_datetime(_kolom(ruw, "Date"), errors="coerce").dt.tz_localize(None).dt.normalize(),
         "naam": _kolom(ruw, "Name"),
