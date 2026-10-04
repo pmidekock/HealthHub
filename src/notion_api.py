@@ -1,5 +1,7 @@
 """Ophalen van Notion data sources via de REST API (versie 2025-09-03)."""
 
+import time
+
 import pandas as pd
 import requests
 
@@ -45,7 +47,14 @@ def query_data_source(token: str, data_source_id: str) -> pd.DataFrame:
         body = {"page_size": 100}
         if cursor:
             body["start_cursor"] = cursor
-        r = requests.post(API_URL.format(id=data_source_id), headers=headers, json=body, timeout=30)
+        for poging in range(4):  # Notion rate limit (429): wait and retry
+            try:
+                r = requests.post(API_URL.format(id=data_source_id), headers=headers, json=body, timeout=30)
+            except requests.RequestException as e:
+                raise RuntimeError(f"network error: {e.__class__.__name__}") from e
+            if r.status_code != 429:
+                break
+            time.sleep(min(10.0, float(r.headers.get("Retry-After", 1 + poging))))
         if r.status_code != 200:
             raise RuntimeError(f"Notion API {r.status_code}: {r.text[:300]}")
         data = r.json()
