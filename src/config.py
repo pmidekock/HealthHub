@@ -27,6 +27,9 @@ GOAL_SESSIONS_WEEK = 5
 GOAL_SLEEP_HOURS = 8.0
 GOAL_SLEEP_MIN_NIGHT = 7.0   # a "good night" for the monthly goal
 
+# Progressive overload hint (double progression): work within this rep range, add weight at the top
+REP_RANGE = (8, 12)
+
 # Fixed orders
 FOCUS_ORDER = ["Glutes & Quads", "Back & Biceps", "Shoulders Chest & Triceps", "Cardio"]
 INTENSITEIT_VOLGORDE = ["Low", "Medium", "High", "Max"]
