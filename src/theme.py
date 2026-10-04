@@ -85,6 +85,12 @@ COMPONENT_CSS = """
 .bl-bars-plot{position:relative;display:grid;grid-auto-flow:column;grid-auto-columns:1fr;align-items:end;gap:var(--space-2);height:150px;border-bottom:1px solid var(--separator)}
 .bl-bar{background:var(--tone);border-radius:var(--radius-full) var(--radius-full) 4px 4px;min-height:4px;opacity:.9}
 .bl-bar.is-dim{opacity:.38}.bl-bar.is-today{opacity:1}
+.bl-bar.is-missing{background:transparent;border:1.5px dashed var(--ink-3);border-bottom:0;opacity:.7;min-height:6px}
+.bl-track{position:relative}
+.bl-cover{display:flex;flex-wrap:wrap;gap:8px}
+.bl-chip{padding:4px 12px;border-radius:var(--radius-full);background:var(--fill);font:500 13px/18px var(--font-sans);color:var(--ink-2);font-variant-numeric:tabular-nums}
+.bl-chip.is-gap{background:color-mix(in srgb,var(--warning) 22%,var(--fill));color:var(--ink)}
+.bl-pace{position:absolute;top:0;bottom:0;width:2px;background:var(--ink);opacity:.6}
 .bl-goal-line{position:absolute;left:0;right:0;border-top:1.5px dotted var(--ink-3);pointer-events:none}
 .bl-goal-tag{position:absolute;right:0;transform:translateY(-100%);font:600 11px/14px var(--font-sans);color:var(--ink-2);background:var(--surface);padding:0 0 2px 4px}
 .bl-bars-axis{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:var(--space-2);font:400 12px/16px var(--font-sans);color:var(--ink-2);text-align:center}
