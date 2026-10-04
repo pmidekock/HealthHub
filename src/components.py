@@ -114,13 +114,14 @@ def metric_card(label: str, value, unit: str = "", tone: str = "move", dlt: str 
             f"{dlt}</div>{spark(sparkline) if sparkline else ''}</div></section>")
 
 
-def goal_progress(label: str, value: float, goal: float, unit: str = "", tone: str = "accent") -> str:
+def goal_progress(label: str, value: float, goal: float, unit: str = "", tone: str = "accent", pace: float | None = None) -> str:
     pct = max(0.0, min(1.0, value / goal)) if goal else 0
+    tick = f'<div class="bl-pace" style="left:{max(0.0, min(1.0, pace)) * 100:.1f}%" title="On pace"></div>' if pace is not None else ""
     return (f'<div class="bl bl-progress bl-tone-{tone}"><div class="bl-progress-top">'
             f'<span class="bl-progress-name">{escape(label)}</span>'
             f'<span class="bl-progress-num"><b>{fmt(value)}</b> / {fmt(goal)}{(" " + escape(unit)) if unit else ""}</span></div>'
             f'<div class="bl-track" role="progressbar" aria-valuemin="0" aria-valuemax="{goal}" aria-valuenow="{value}" aria-label="{escape(label)}">'
-            f'<div class="bl-fill" style="width:{pct * 100:.1f}%"></div></div></div>')
+            f'<div class="bl-fill" style="width:{pct * 100:.1f}%"></div>{tick}</div></div>')
 
 
 def week_bars(data: list[dict], goal: float | None = None, unit: str = "", tone: str = "move", today_index: int | None = None) -> str:
@@ -130,13 +131,15 @@ def week_bars(data: list[dict], goal: float | None = None, unit: str = "", tone:
     ti = len(data) - 1 if today_index is None else today_index
     bars = []
     for i, x in enumerate(data):
-        cls = "bl-bar" + (" is-today" if i == ti else "") + (" is-dim" if goal and x["value"] < goal else "")
-        bars.append(f'<div class="{cls}" style="height:{x["value"] / mx * 100:.1f}%" '
-                    f'title="{escape(x["label"])}: {fmt(x["value"])} {escape(unit)}"></div>')
+        missing = bool(x.get("missing"))
+        cls = ("bl-bar" + (" is-today" if i == ti else "") + (" is-dim" if goal and x["value"] < goal and not missing else "")
+               + (" is-missing" if missing else ""))
+        tip = f'{x["label"]}: no data' if missing else f'{x["label"]}: {fmt(x["value"])} {unit}'
+        bars.append(f'<div class="{cls}" style="height:{x["value"] / mx * 100:.1f}%" title="{escape(tip)}"></div>')
     gl = (f'<div class="bl-goal-line" style="bottom:{goal / mx * 100:.1f}%"><span class="bl-goal-tag">goal {fmt(goal)}</span></div>'
           if goal else "")
     axis = "".join(f'<span class="{"is-today" if i == ti else ""}">{escape(x["label"])}</span>' for i, x in enumerate(data))
-    aria = ", ".join(f'{x["label"]} {fmt(x["value"])}' for x in data)
+    aria = ", ".join(f'{x["label"]} {"no data" if x.get("missing") else fmt(x["value"])}' for x in data)
     return (f'<div class="bl bl-bars bl-tone-{tone}"><div class="bl-bars-plot" role="img" aria-label="{escape(aria)}">'
             f'{"".join(bars)}{gl}</div><div class="bl-bars-axis">{axis}</div></div>')
 
@@ -152,3 +155,11 @@ def workout_row(title: str, subtitle: str, value, unit: str = "", meta: str = ""
 
 def row_list(rows: list[str]) -> str:
     return f'<div class="bl bl-list">{"".join(rows)}</div>' if rows else '<p class="bl-empty">Nothing logged yet.</p>'
+
+
+def coverage(items: list[tuple[str, int, int]]) -> str:
+    """Small chips showing how many days were logged: [(label, logged, days)]."""
+    chips = "".join(
+        f'<span class="bl-chip{" is-gap" if got < total else ""}" title="{got} of {total} days logged">{escape(label)} {got}/{total}</span>'
+        for label, got, total in items)
+    return f'<div class="bl bl-cover">{chips}</div>'
