@@ -165,9 +165,11 @@ if _wk_parts:
 # ---------- Rings (today) + active energy ----------
 c1, c2 = st.columns(2)
 with c1:
-    day = act_all[act_all["datum"] == today]
-    if day.empty and not act_all.empty:
-        day = act_all.tail(1)
+    # Use today's rings; if today has no ring data yet (e.g. only steps logged), fall back to the latest day that has
+    _rings = act_all.dropna(subset=["move", "exercise", "stand"], how="all") if not act_all.empty else act_all
+    day = _rings[_rings["datum"] == today]
+    if day.empty and not _rings.empty:
+        day = _rings.tail(1)
     if day.empty:
         ui.render(ui.card('<p class="bl-empty">Log your Apple Watch rings in Daily Activity to see them here.</p>',
                           title="Activity"))
@@ -183,9 +185,9 @@ with c1:
                else "Nothing logged for today yet.")
         ui.render(ui.card(
             ui.activity_rings([
-                {"label": "Move", "value": round(r["move"] or 0), "goal": GOAL_MOVE_KCAL, "unit": "kcal", "tone": "move"},
-                {"label": "Exercise", "value": round(r["exercise"] or 0), "goal": GOAL_EXERCISE_MIN, "unit": "min", "tone": "exercise"},
-                {"label": "Stand", "value": round(r["stand"] or 0), "goal": GOAL_STAND_HRS, "unit": "hrs", "tone": "stand"},
+                {"label": "Move", "value": round(0 if pd.isna(r["move"]) else r["move"]), "goal": GOAL_MOVE_KCAL, "unit": "kcal", "tone": "move"},
+                {"label": "Exercise", "value": round(0 if pd.isna(r["exercise"]) else r["exercise"]), "goal": GOAL_EXERCISE_MIN, "unit": "min", "tone": "exercise"},
+                {"label": "Stand", "value": round(0 if pd.isna(r["stand"]) else r["stand"]), "goal": GOAL_STAND_HRS, "unit": "hrs", "tone": "stand"},
             ]) + f'<p class="bl-note">{msg}</p>',
             title="Activity", sub="Today" if is_today else when(r["datum"])))
 with c2:
