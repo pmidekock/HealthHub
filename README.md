@@ -4,7 +4,7 @@ A Streamlit dashboard that pulls live data from the Notion **Health Hub** (Fitne
 
 Styled according to the **HealthHub design system** (cream/sand/dusty pink/burgundy, Fraunces + DM Sans, light & dark mode). UI text is in English.
 
-**Page layout:** greeting + period selector (Week · Month · Quarter · Year) → today's Apple Watch rings (Move 500 kcal, Exercise 50 min, Stand 12 h) + active energy per day → 4 metric cards (steps, weight, body fat %, sleep) → Training (recent workouts, monthly goals incl. rings and 10k-step days, sessions per week, training calendar) → Strength (progression per exercise with PR stars and e1RM, recent PRs, weekly volume) → Body (all scans: weight, body fat %, muscle %, BMI, bone mass) → Sleep (hours slept, nights 7h+, sleep × training) → Your data (tables + CSV).
+**Page layout:** greeting + period selector (Week · Month · Quarter · Year) → one-line summary of this week → today's Apple Watch rings (Move 500 kcal, Exercise 50 min, Stand 12 h) + active energy per day → 4 metric cards (steps, weight, body fat %, sleep) + chips showing how many of the last 14 days were logged → Training (recent workouts, monthly goals incl. rings and 10k-step days, sessions per week, training calendar) → Streaks (weeks with 5 sessions, all three rings closed, 10k steps) → Strength (progression per exercise with PR stars and e1RM, recent PRs, weekly volume, sets per muscle group, a "next time" hint per exercise) → Body (all scans: weight, body fat %, muscle %, BMI, bone mass) → Sleep (hours slept, nights 7h+, sleep × training, by hours or quality) → Your data (tables + CSV).
 
 Without a token, the app runs in **demo mode** with synthetic data.
 
@@ -74,11 +74,15 @@ Every `git push` to `main` restarts the app automatically.
 - **Exercise** = the *Exercise* field, otherwise the *Name*.
 - **PR** = heaviest weight per exercise; **e1RM** (Epley) = weight × (1 + reps/30). Exercises without weight (bodyweight) are not counted.
 - **Sleep** on date X = the night before the training on date X.
-- **BMI** uses a height of x m (adjustable in `src/config.py`).
+- **BMI** uses a height of 1.58 m (`HEIGHT_M` in `src/config.py`).
+- **Streaks**: a week counts when it has at least 5 sessions (any sport); a day counts when all three rings are closed (or 10k steps). A day or week still in progress does not break a streak, a day without a log does.
+- **Next time hint** uses double progression: build reps within `REP_RANGE` (8-12), add weight once you reach the top. Steps of 2.5 / 1 / 0.5 kg depending on the load. It is a suggestion based on your last session, not a training prescription.
+- **Calendar / volume / muscle-group charts** show whole weeks (Mon-Sun), at least 5 columns.
 
 ## Customising
 
 - Start date: `START_DATE` in `src/config.py` (currently 23-09-2026). Older rows stay in Notion but are not counted.
+- Rep range for the hint: `REP_RANGE` in `src/config.py`.
 - Goals: `GOAL_*` in `src/config.py` (sessions, minutes and kcal per week, sleep). Monthly goals are derived from these.
 - Light/dark follows your system setting; you can switch via the menu in the top right → Settings.
 - New sport (e.g. kickboxing): add the option in Notion (*Sport Type*); the colour and icon are already set up in `SPORT_STYLE`.
@@ -86,4 +90,4 @@ Every `git push` to `main` restarts the app automatically.
 
 ## Public repo + password
 
-Streamlit Community Cloud only allows one *private* app per workspace. If you are already using that, set the repo to **public** and set `APP_PASSWORD` in Secrets: the app will then show a password screen first. The code contains no health data; that only comes in through your Notion token (which is stored in Secrets, not in the repo).
+Streamlit Community Cloud only allows one *private* app per workspace. If you are already using that, set the repo to **public** and set `APP_PASSWORD` in Secrets: the app will then show a password screen first. The code contains no health data; that only comes in through your Notion token (which is stored in Secrets, not in the repo). Make sure the ignore file is named `.gitignore` (with the leading dot), otherwise `.streamlit/secrets.toml` is not excluded.
