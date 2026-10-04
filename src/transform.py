@@ -145,3 +145,67 @@ def schoon_activiteit(ruw: pd.DataFrame) -> pd.DataFrame:
         df[doel] = pd.to_numeric(_kolom(ruw, bron), errors="coerce")
     df = df.dropna(subset=["datum"])
     return df.groupby("datum", as_index=False).max().sort_values("datum").reset_index(drop=True)
+
+
+def _streak(flags: pd.Series, open_last: bool = True) -> tuple[int, int]:
+    """(current, best) run of True values. The last period may still be in progress, so a False there does not break the streak."""
+    f = [bool(v) for v in flags.tolist()]
+    best = run = 0
+    for v in f:
+        run = run + 1 if v else 0
+        best = max(best, run)
+    seq = f[:-1] if (open_last and f and not f[-1]) else f
+    cur = 0
+    for v in reversed(seq):
+        if not v:
+            break
+        cur += 1
+    return cur, best
+
+
+def streak_weeks(sess: pd.DataFrame, goal: int, week_start: pd.Timestamp) -> tuple[int, int, int]:
+    """Weeks in a row with at least `goal` sessions -> (current, best, sessions this week)."""
+    if sess.empty:
+        return 0, 0, 0
+    weeks = pd.date_range(sess["week"].min(), week_start, freq="7D")
+    per = sess.groupby("week").size().reindex(weeks, fill_value=0)
+    cur, best = _streak(per >= goal)
+    return cur, best, int(per.iloc[-1])
+
+
+def streak_days(flags: pd.Series, today: pd.Timestamp) -> tuple[int, int]:
+    """Days in a row where flag is True (index = date) -> (current, best). Days without a log count as a miss."""
+    if flags.empty:
+        return 0, 0
+    idx = pd.date_range(flags.index.min(), today)
+    return _streak(flags.reindex(idx, fill_value=False))
+
+
+def overload_hint(fit: pd.DataFrame, exercise: str, rep_range: tuple[int, int]) -> str | None:
+    """Double progression: build reps inside the range, add weight once you reach the top."""
+    g = fit[(fit["sport"] == "Gym") & (fit["oefening"] == exercise)]
+    if g.empty:
+        return None
+    day = g[g["datum"] == g["datum"].max()].sort_values("gewicht", ascending=False, na_position="last")
+    row = day.iloc[0]
+    reps, sets, w = row["reps"], row["sets"], row["gewicht"]
+    if pd.isna(reps):
+        return None
+    lo, hi = rep_range
+    r = int(reps)
+    sets_txt = f"{int(sets)}×" if pd.notna(sets) else ""
+    when = f"{row['datum']:%b} {row['datum'].day}"
+    if pd.isna(w) or w <= 0:
+        last = f"Last time ({when}): {sets_txt}{r} reps."
+        nxt = "You are at the top of your range: add a set or a harder variation." if r >= hi else f"Aim for {r + 1} reps per set."
+        return f"{last} {nxt}"
+    step = 2.5 if w >= 20 else 1.0 if w >= 5 else 0.5
+    heavier = f"~{w + step:g} kg"
+    last = f"Last time ({when}): {sets_txt}{r} @ {w:g} kg."
+    if r >= hi:
+        nxt = f"Add weight: try {heavier} and aim for {lo}+ reps per set."
+    elif r < lo:
+        nxt = f"Stay at {w:g} kg and build up to {hi} reps per set before adding weight."
+    else:
+        nxt = f"Stay at {w:g} kg and aim for {r + 1} reps per set. At {hi} reps, go up to {heavier}."
+    return f"{last} {nxt}"
